@@ -9,11 +9,13 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "flowbite-react": "^0.12.16",
     "next": "16.1.2",
     "react": "19.2.3",
     "react-dom": "19.2.3"
   },
   "devDependencies": {
+    "@iconify/react": "^6.0.2",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
