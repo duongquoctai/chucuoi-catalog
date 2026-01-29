@@ -9,10 +9,18 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@auth/mongodb-adapter": "^3.11.1",
+    "@hookform/resolvers": "^5.2.2",
+    "cloudinary": "^2.9.0",
     "flowbite-react": "^0.12.16",
+    "mongoose": "^9.1.5",
     "next": "16.1.2",
+    "next-auth": "^5.0.0-beta.30",
+    "next-cloudinary": "^6.17.5",
     "react": "19.2.3",
-    "react-dom": "19.2.3"
+    "react-dom": "19.2.3",
+    "react-hook-form": "^7.71.1",
+    "yup": "^1.7.1"
   },
   "devDependencies": {
     "@iconify/react": "^6.0.2",
