@@ -5,9 +5,10 @@ import { Icon } from "@iconify/react";
 import { CldUploadWidget } from "next-cloudinary";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import * as yup from "yup";
+import { generateSKU } from "../../utils/products";
 
 interface Category {
   _id: string;
@@ -25,7 +26,10 @@ const schema = yup
       .string()
       .required("Mô tả chi tiết là bắt buộc")
       .max(5000, "Mô tả không quá 5000 ký tự"),
-    shortDescription: yup.string().max(300, "Mô tả ngắn không quá 300 ký tự"),
+    shortDescription: yup
+      .string()
+      .optional()
+      .max(300, "Mô tả ngắn không quá 300 ký tự"),
     basePrice: yup
       .number()
       .typeError("Giá gốc phải là số")
@@ -34,6 +38,7 @@ const schema = yup
     salePrice: yup
       .number()
       .typeError("Giá khuyến mãi phải là số")
+      .optional()
       .nullable()
       .transform((v, o) => (o === "" ? null : v))
       .min(0, "Giá không được âm"),
@@ -46,20 +51,69 @@ const schema = yup
     category: yup.string().required("Danh mục là bắt buộc"),
     isActive: yup.boolean().default(true),
     isFeatured: yup.boolean().default(false),
-    metaTitle: yup.string().max(70, "SEO Title không quá 70 ký tự"),
+    metaTitle: yup.string().optional().max(70, "SEO Title không quá 70 ký tự"),
     metaDescription: yup
       .string()
+      .optional()
       .max(160, "SEO Description không quá 160 ký tự"),
   })
   .required();
 
-type FormData = yup.InferType<typeof schema>;
+interface Category {
+  _id: string;
+  name: string;
+}
+
+interface ImageFile {
+  url: string;
+  publicId: string;
+}
+
+interface ProductFormData {
+  name: string;
+  slug: string;
+  description: string;
+  shortDescription?: string;
+  basePrice: number;
+  salePrice?: number | null;
+  sku: string;
+  stock: number;
+  category: string;
+  isActive: boolean;
+  isFeatured: boolean;
+  metaTitle?: string;
+  metaDescription?: string;
+}
+
+interface CloudinaryResult {
+  event?: string;
+  info?:
+    | {
+        secure_url: string;
+        public_id: string;
+        [key: string]: any;
+      }
+    | string;
+}
+
+const deleteImage = async (publicId: string) => {
+  try {
+    await fetch("/api/upload/delete", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ publicId }),
+    });
+  } catch (error) {
+    console.error("Error deleting image:", error);
+  }
+};
 
 export default function NewProductPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [images, setImages] = useState<string[]>([]);
+  const [images, setImages] = useState<ImageFile[]>([]);
+  const isSubmitted = useRef(false);
 
   const {
     register,
@@ -67,20 +121,50 @@ export default function NewProductPage() {
     setValue,
     watch,
     formState: { errors },
-  } = useForm<FormData>({
-    resolver: yupResolver(schema),
+  } = useForm<ProductFormData>({
+    resolver: yupResolver(schema) as any,
     defaultValues: {
       isActive: true,
       isFeatured: false,
-      stock: 0,
+      stock: 100,
     },
   });
 
   const productName = watch("name");
 
+  const imagesRef = useRef<ImageFile[]>([]);
+
+  useEffect(() => {
+    imagesRef.current = images;
+  }, [images]);
+
   useEffect(() => {
     fetchCategories();
-  }, []);
+
+    // Cleanup unsubmitted images when component unmounts (CSR navigation)
+    return () => {
+      if (!isSubmitted.current && imagesRef.current.length > 0) {
+        imagesRef.current.forEach((img) => deleteImage(img.publicId));
+      }
+    };
+  }, []); // Run only on mount/unmount
+
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (!isSubmitted.current && images.length > 0) {
+        // Note: Modern browsers might not allow async fetch in beforeunload
+        // but we'll try our best or use it as a hint.
+        // For CSR navigation, the useEffect cleanup above handles it.
+        images.forEach((img) => {
+          const body = JSON.stringify({ publicId: img.publicId });
+          navigator.sendBeacon("/api/upload/delete", body);
+        });
+      }
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [images]);
 
   useEffect(() => {
     if (productName) {
@@ -104,24 +188,30 @@ export default function NewProductPage() {
     }
   };
 
-  const handleUploadSuccess = (result: any) => {
+  const handleUploadSuccess = (result: CloudinaryResult) => {
     if (
       result.event === "success" &&
       result.info &&
       typeof result.info === "object" &&
       "secure_url" in result.info
     ) {
-      setImages((prev) => [...prev, result.info.secure_url]);
+      const info = result.info;
+      setImages((prev) => [
+        ...prev,
+        { url: info.secure_url, publicId: info.public_id },
+      ]);
     }
   };
 
-  const removeImage = (index: number) => {
-    setImages((prev) => prev.filter((_, i) => i !== index));
+  const removeImage = async (index: number) => {
+    const imageToDelete = images[index];
+    if (imageToDelete) {
+      await deleteImage(imageToDelete.publicId);
+      setImages((prev) => prev.filter((_, i) => i !== index));
+    }
   };
 
-  const onSubmit = async (data: FormData) => {
-    console.log("data", data);
-    return;
+  const onSubmit = async (data: ProductFormData) => {
     if (images.length === 0) {
       alert("Vui lòng tải lên ít nhất một hình ảnh.");
       return;
@@ -131,8 +221,8 @@ export default function NewProductPage() {
     try {
       const payload = {
         ...data,
-        images: images,
-        thumbnail: images[0] || "",
+        images: images.map((img) => img.url),
+        thumbnail: images[0]?.url || "",
       };
 
       const res = await fetch("/api/products", {
@@ -146,6 +236,7 @@ export default function NewProductPage() {
       const result = await res.json();
 
       if (result.success) {
+        isSubmitted.current = true; // Mark as submitted to prevent cleanup
         alert("Sản phẩm đã được tạo thành công!");
         router.push("/admin/dashboard");
       } else {
@@ -158,6 +249,13 @@ export default function NewProductPage() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (categories.length > 0) {
+      setValue("category", categories[0]._id);
+      setValue("sku", generateSKU(categories[0].name));
+    }
+  }, [categories.length]);
 
   return (
     <div className="max-w-4xl mx-auto pb-20">
@@ -238,7 +336,6 @@ export default function NewProductPage() {
                   errors.category ? "border-red-500" : ""
                 }`}
               >
-                <option value="">Chọn danh mục</option>
                 {categories.map((cat) => (
                   <option key={cat._id} value={cat._id}>
                     {cat.name}
@@ -407,7 +504,7 @@ export default function NewProductPage() {
                   className="relative aspect-square rounded-lg overflow-hidden border"
                 >
                   <Image
-                    src={url}
+                    src={url.url}
                     alt={`Product ${index}`}
                     fill
                     className="object-cover"

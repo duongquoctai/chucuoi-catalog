@@ -41,7 +41,6 @@
 {
   // Pricing
   basePrice: number,
-  currentPrice: number,
   salePrice?: number,
   discountPercentage?: number,
 

@@ -34,17 +34,19 @@ export async function GET(request: Request) {
       onSale: searchParams.get("onSale") || undefined,
     };
 
+    const isAdminRequest = searchParams.get("admin") === "true";
+
     // Build query
-    const query: any = { isActive: true };
+    const query: any = isAdminRequest ? {} : { isActive: true };
 
     if (params.category) {
       query.category = params.category;
     }
 
     if (params.minPrice || params.maxPrice) {
-      query.currentPrice = {};
-      if (params.minPrice) query.currentPrice.$gte = Number(params.minPrice);
-      if (params.maxPrice) query.currentPrice.$lte = Number(params.maxPrice);
+      query.basePrice = {};
+      if (params.minPrice) query.basePrice.$gte = Number(params.minPrice);
+      if (params.maxPrice) query.basePrice.$lte = Number(params.maxPrice);
     }
 
     if (params.search) {
@@ -68,10 +70,10 @@ export async function GET(request: Request) {
     let sortOptions: any = {};
     switch (params.sort) {
       case "price-asc":
-        sortOptions = { currentPrice: 1 };
+        sortOptions = { basePrice: 1 };
         break;
       case "price-desc":
-        sortOptions = { currentPrice: -1 };
+        sortOptions = { basePrice: -1 };
         break;
       case "name-asc":
         sortOptions = { name: 1 };
@@ -134,13 +136,7 @@ export async function POST(request: Request) {
     const body = await request.json();
 
     // Validate required fields
-    const requiredFields = [
-      "name",
-      "basePrice",
-      "currentPrice",
-      "sku",
-      "category",
-    ];
+    const requiredFields = ["name", "basePrice", "sku", "category"];
     const missingFields = requiredFields.filter((field) => !body[field]);
 
     if (missingFields.length > 0) {

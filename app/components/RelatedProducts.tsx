@@ -8,8 +8,8 @@ interface Product {
   name: string;
   slug: string;
   thumbnail: string;
-  currentPrice: number;
   basePrice: number;
+  salePrice?: number;
   isOnSale: boolean;
   discountPercentage?: number;
 }
@@ -55,7 +55,11 @@ export default function RelatedProducts({ products }: RelatedProductsProps) {
             <h3 className="mb-1 font-serif text-base">{product.name}</h3>
             <div className="flex items-baseline gap-2">
               <p className="text-sm font-medium">
-                {formatPrice(product.currentPrice)}
+                {formatPrice(
+                  product.isOnSale && product.salePrice
+                    ? product.salePrice
+                    : product.basePrice,
+                )}
               </p>
               {product.isOnSale && (
                 <p className="text-xs text-gray-400 line-through">

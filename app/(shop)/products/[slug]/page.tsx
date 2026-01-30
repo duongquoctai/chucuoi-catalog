@@ -3,6 +3,7 @@ import ProductGallery from "@/app/components/ProductGallery";
 import RelatedProducts from "@/app/components/RelatedProducts";
 import { Icon } from "@iconify/react";
 import { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 
 interface PageProps {
@@ -89,25 +90,25 @@ export default async function ProductDetailPage({ params }: PageProps) {
       {/* Header */}
       <header className="sticky top-0 z-50 border-b border-gray-100 bg-white/80 backdrop-blur-md">
         <div className="flex items-center justify-between px-6 py-4 md:px-12">
-          <a
+          <Link
             href="/"
             className="font-serif text-2xl tracking-tight md:text-3xl lg:text-4xl"
           >
             Hoa Tươi Chú Cuội
-          </a>
+          </Link>
         </div>
       </header>
 
       <main className="mx-auto max-w-7xl px-6 py-12 md:px-12">
         {/* Breadcrumb */}
         <nav className="mb-8 flex items-center gap-2 text-sm text-gray-600">
-          <a href="/" className="hover:text-brand">
+          <Link href="/" className="hover:text-brand">
             Trang chủ
-          </a>
+          </Link>
           <Icon icon="material-symbols:chevron-right-rounded" />
-          <a href="/products" className="hover:text-brand">
+          <Link href="/products" className="hover:text-brand">
             Sản phẩm
-          </a>
+          </Link>
           <Icon icon="material-symbols:chevron-right-rounded" />
           <span className="text-brand">{product.name}</span>
         </nav>
@@ -143,10 +144,13 @@ export default async function ProductDetailPage({ params }: PageProps) {
               </p>
             )}
 
-            {/* Price */}
             <div className="mb-8 flex items-baseline gap-4">
               <span className="font-serif text-3xl">
-                {formatPrice(product.currentPrice)}
+                {formatPrice(
+                  product.isOnSale && product.salePrice
+                    ? product.salePrice
+                    : product.basePrice,
+                )}
               </span>
               {product.isOnSale && (
                 <>

@@ -10,8 +10,8 @@ interface Product {
   name: string;
   slug: string;
   thumbnail: string;
-  currentPrice: number;
   basePrice: number;
+  salePrice?: number;
   isOnSale: boolean;
   discountPercentage?: number;
   category: {
@@ -155,7 +155,13 @@ export default function ProductList({ searchParams }: ProductListProps) {
               {product.name}
             </h3>
             <div className="flex items-baseline gap-2">
-              <p className="font-medium">{formatPrice(product.currentPrice)}</p>
+              <p className="font-medium">
+                {formatPrice(
+                  product.isOnSale && product.salePrice
+                    ? product.salePrice
+                    : product.basePrice,
+                )}
+              </p>
               {product.isOnSale && (
                 <p className="text-sm text-gray-400 line-through">
                   {formatPrice(product.basePrice)}

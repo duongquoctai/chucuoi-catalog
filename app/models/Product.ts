@@ -1,4 +1,4 @@
-import mongoose, { Model, models, Schema } from "mongoose";
+import mongoose, { Document, Model, models, Schema } from "mongoose";
 
 export interface IProduct {
   _id: string;
@@ -9,7 +9,6 @@ export interface IProduct {
 
   // Pricing
   basePrice: number;
-  currentPrice: number;
   salePrice?: number;
   discountPercentage?: number;
 
@@ -23,7 +22,7 @@ export interface IProduct {
   thumbnail?: string;
 
   // Categorization
-  category: string;
+  category: mongoose.Types.ObjectId | string;
   tags?: string[];
 
   // SEO
@@ -52,7 +51,11 @@ export interface IProduct {
   updatedAt: Date;
 }
 
-const ProductSchema = new Schema<IProduct>(
+export interface IProductDocument extends IProduct, Document {
+  _id: any;
+}
+
+const ProductSchema = new Schema<IProductDocument>(
   {
     name: {
       type: String,
@@ -79,17 +82,10 @@ const ProductSchema = new Schema<IProduct>(
       maxlength: [300, "Short description cannot exceed 300 characters"],
     },
 
-    // Pricing
     basePrice: {
       type: Number,
       required: [true, "Base price is required"],
       min: [0, "Base price cannot be negative"],
-    },
-    currentPrice: {
-      type: Number,
-      required: [true, "Current price is required"],
-      min: [0, "Current price cannot be negative"],
-      index: true,
     },
     salePrice: {
       type: Number,
@@ -206,34 +202,32 @@ const ProductSchema = new Schema<IProduct>(
 );
 
 // Compound indexes for common queries
-ProductSchema.index({ category: 1, isActive: 1, currentPrice: 1 });
+ProductSchema.index({ category: 1, isActive: 1, basePrice: 1 });
 ProductSchema.index({ isActive: 1, isFeatured: 1, createdAt: -1 });
-ProductSchema.index({ isActive: 1, isOnSale: 1, currentPrice: 1 });
+ProductSchema.index({ isActive: 1, isOnSale: 1, basePrice: 1 });
 ProductSchema.index({ slug: 1, isActive: 1 });
 
 // Text index for search
 ProductSchema.index({ name: "text", description: "text", tags: "text" });
 
 // Virtual for checking if product is in stock
-ProductSchema.virtual("inStock").get(function () {
+ProductSchema.virtual("inStock").get(function (this: IProductDocument) {
   return this.stock > 0;
 });
 
 // Virtual for checking if stock is low
-ProductSchema.virtual("isLowStock").get(function () {
+ProductSchema.virtual("isLowStock").get(function (this: IProductDocument) {
   return this.stock > 0 && this.stock <= this.lowStockThreshold;
 });
 
 // Pre-save middleware to calculate sale price and discount
-ProductSchema.pre("save", function (next) {
+ProductSchema.pre("save", function (this: IProductDocument, next) {
   if (this.salePrice && this.salePrice < this.basePrice) {
-    this.currentPrice = this.salePrice;
     this.isOnSale = true;
     this.discountPercentage = Math.round(
       ((this.basePrice - this.salePrice) / this.basePrice) * 100,
     );
   } else {
-    this.currentPrice = this.basePrice;
     this.isOnSale = false;
     this.discountPercentage = 0;
   }
@@ -246,7 +240,7 @@ ProductSchema.pre("save", function (next) {
   next();
 });
 
-const Product: Model<IProduct> =
-  models.Product || mongoose.model<IProduct>("Product", ProductSchema);
+const Product: Model<IProductDocument> =
+  models.Product || mongoose.model<IProductDocument>("Product", ProductSchema);
 
 export default Product;

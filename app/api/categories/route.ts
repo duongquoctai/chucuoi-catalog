@@ -10,7 +10,7 @@ export async function GET() {
 
     const categories = await Category.find({ isActive: true })
       .select("-__v")
-      .sort({ displayOrder: 1, name: 1 })
+      .sort({ name: -1 })
       .lean();
 
     return NextResponse.json({
